@@ -1,4 +1,6 @@
-﻿public interface IDeviceManager
+﻿using MQTTLoadTest.Core.Models;
+
+public interface IDeviceManager
 {
     Task<List<DeviceConfig>> LoadDevicesAsync();
     Task SaveDevicesAsync(List<DeviceConfig> devices);

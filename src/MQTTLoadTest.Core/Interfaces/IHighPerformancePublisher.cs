@@ -1,4 +1,6 @@
-﻿public interface IHighPerformancePublisher : IDisposable
+﻿using MQTTLoadTest.Core.Models;
+
+public interface IHighPerformancePublisher : IDisposable
 {
     string DeviceId { get; }
     bool IsConnected { get; }

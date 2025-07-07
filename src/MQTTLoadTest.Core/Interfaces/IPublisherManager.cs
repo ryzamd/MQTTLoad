@@ -1,4 +1,6 @@
-﻿public interface IPublisherManager
+﻿using MQTTLoadTest.Core.Models;
+
+public interface IPublisherManager
 {
     Task<bool> StartPublisherAsync(string deviceId);
     Task<bool> StopPublisherAsync(string deviceId);

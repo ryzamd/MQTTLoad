@@ -1,8 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
-	<PackageReference Include="Microsoft.Extensions.Options" Version="9.0.6" />
 	<PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.6" />
 	<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
 	<PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
@@ -12,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MQTTLoadTest.Core\MQTTLoadTest.Core.csproj" />
+	<ProjectReference Include="..\MQTTLoadTest.Core\MQTTLoadTest.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

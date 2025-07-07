@@ -1,4 +1,6 @@
-﻿public interface IPerformanceMonitor
+﻿using MQTTLoadTest.Core.Models;
+
+public interface IPerformanceMonitor
 {
     void IncrementCounter(string name, long value = 1);
     void SetGauge(string name, double value);

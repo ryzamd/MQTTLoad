@@ -277,7 +277,7 @@ public class HighPerformancePublisher : IHighPerformancePublisher
             DeviceId = _device.DeviceId,
             DeviceName = _device.DeviceName,
             Timestamp = DateTime.UtcNow,
-            SequenceNumber = sequenceNumber,
+            SequenceNumber = (int)sequenceNumber,
             ScanData = GenerateRandomScanData(),
             Temperature = Math.Round(_random.NextDouble() * 50 + 20, 2), // 20-70°C
             Status = _random.Next(100) < 95 ? "OK" : "WARNING", // 95% OK, 5% WARNING

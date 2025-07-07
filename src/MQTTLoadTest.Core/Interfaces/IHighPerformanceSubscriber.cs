@@ -1,4 +1,6 @@
-﻿public interface IHighPerformanceSubscriber : IDisposable
+﻿using MQTTLoadTest.Core.Models;
+
+public interface IHighPerformanceSubscriber : IDisposable
 {
     bool IsConnected { get; }
     bool IsRunning { get; }

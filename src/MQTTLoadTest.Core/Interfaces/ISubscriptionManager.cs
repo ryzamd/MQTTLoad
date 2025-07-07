@@ -1,4 +1,6 @@
-﻿public interface ISubscriptionManager
+﻿using MQTTLoadTest.Core.Models;
+
+public interface ISubscriptionManager
 {
     Task<bool> SubscribeToDeviceAsync(string deviceId, string topic);
     Task<bool> UnsubscribeFromDeviceAsync(string deviceId);
