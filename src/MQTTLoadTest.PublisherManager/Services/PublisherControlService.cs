@@ -26,7 +26,7 @@ public class PublisherControlService
         _performanceMonitor = performanceMonitor;
         _config = config.Value;
         _logger = logger;
-        _stateFilePath = Path.Combine("config", "publisher-states.json");
+        _stateFilePath = Path.Combine("D:/CSharp/MQTTLoadTest/", "publisher-states.json");
     }
 
     public async Task<bool> StartAllPublishersAsync()
@@ -69,6 +69,42 @@ public class PublisherControlService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to stop all publishers");
+            return false;
+        }
+    }
+
+    public async Task<bool> AddPublishersAsync(int count, string? deviceId = null, string? deviceName = null)
+    {
+        try
+        {
+            _logger.LogInformation($"Adding {count} new publishers...");
+            var deviceIds = new List<string>();
+
+            if (!string.IsNullOrEmpty(deviceId))
+            {
+                // Add specific device
+                if (!_deviceManager.ValidateDeviceId(deviceId))
+                {
+                    _logger.LogWarning($"Invalid device ID format: {deviceId}");
+                    return false;
+                }
+                deviceIds.Add(deviceId);
+            }
+            else
+            {
+                // Generate new device IDs
+                for (int i = 0; i < count; i++)
+                {
+                    var device = await _deviceManager.GenerateDeviceAsync(i);
+                    deviceIds.Add(device.DeviceId);
+                }
+            }
+
+            return await AddPublishersAsync(deviceIds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add publishers");
             return false;
         }
     }
@@ -184,7 +220,7 @@ public class PublisherControlService
         }
     }
 
-    public async Task ShowStatusAsync()
+    public async Task ShowStatusAsync(bool detail = false)
     {
         try
         {
@@ -206,7 +242,7 @@ public class PublisherControlService
             Console.WriteLine($"Error Rate: {metrics.ErrorRate:F2}%");
             Console.WriteLine($"Memory Usage: {metrics.MemoryUsageMB:F2}MB");
 
-            if (states.Any())
+            if (detail && states.Any())
             {
                 Console.WriteLine("\n=== Publisher Details ===");
                 Console.WriteLine($"{"Device ID",-15} {"Status",-12} {"Connected",-10} {"Publishing",-10} {"Messages",-10}");
@@ -380,7 +416,41 @@ public class PublisherControlService
         }
     }
 
-    private async Task<bool> StartPublishersAsync(List<string> deviceIds)
+    public async Task<bool> StartPublishersAsync(string[] deviceIds, bool all)
+    {
+        if (all)
+        {
+            return await StartAllPublishersAsync();
+        }
+        else if (deviceIds?.Length > 0)
+        {
+            return await StartPublishersAsync(deviceIds.ToList());
+        }
+        else
+        {
+            Console.WriteLine("No device IDs specified and --all flag not set.");
+            return false;
+        }
+    }
+
+    public async Task<bool> StopPublishersAsync(string[] deviceIds, bool all)
+    {
+        if (all)
+        {
+            return await StopAllPublishersAsync();
+        }
+        else if (deviceIds?.Length > 0)
+        {
+            return await StopPublishersAsync(deviceIds.ToList());
+        }
+        else
+        {
+            Console.WriteLine("No device IDs specified and --all flag not set.");
+            return false;
+        }
+    }
+
+    public async Task<bool> StartPublishersAsync(List<string> deviceIds)
     {
         var tasks = deviceIds.Select(deviceId => _publisherManager.StartPublisherAsync(deviceId));
         var results = await Task.WhenAll(tasks);
@@ -391,7 +461,7 @@ public class PublisherControlService
         return successCount > 0;
     }
 
-    private async Task<bool> StopPublishersAsync(List<string> deviceIds)
+    public async Task<bool> StopPublishersAsync(List<string> deviceIds)
     {
         var tasks = deviceIds.Select(deviceId => _publisherManager.StopPublisherAsync(deviceId));
         var results = await Task.WhenAll(tasks);

@@ -415,7 +415,11 @@ public class HighPerformanceSubscriber : IHighPerformanceSubscriber
                 // Detect sequence gaps (message loss indicator)
                 if (messageData.SequenceNumber != existing.LastSequenceNumber + 1 && existing.LastSequenceNumber > 0)
                 {
-                    existing.SequenceGaps++;
+                    // Add the missing sequence numbers to the gaps list
+                    for (int missing = existing.LastSequenceNumber + 1; missing < messageData.SequenceNumber; missing++)
+                    {
+                        existing.SequenceGaps.Add(missing);
+                    }
                 }
                 existing.LastSequenceNumber = messageData.SequenceNumber;
                 existing.LastStatus = messageData.Status;

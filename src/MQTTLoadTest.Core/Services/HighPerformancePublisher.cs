@@ -311,14 +311,12 @@ public class HighPerformancePublisher : IHighPerformancePublisher
             return MqttQualityOfServiceLevel.ExactlyOnce;
     }
 
-    private TimeSpan? CalculateAverageLatency(TimeSpan? current, double newLatency, long messageCount)
+    private double CalculateAverageLatency(double current, double newLatency, long messageCount)
     {
-        if (current == null)
-            return TimeSpan.FromMilliseconds(newLatency);
+        if (messageCount == 1)
+            return newLatency;
 
-        var currentMs = current.Value.TotalMilliseconds;
-        var newAverage = ((currentMs * (messageCount - 1)) + newLatency) / messageCount;
-        return TimeSpan.FromMilliseconds(newAverage);
+        return ((current * (messageCount - 1)) + newLatency) / messageCount;
     }
 
     private void UpdateState(Action<PublisherState> updateAction)

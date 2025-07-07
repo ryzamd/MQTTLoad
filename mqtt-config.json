@@ -1,0 +1,48 @@
+{
+  "MqttConfiguration": {
+    "BrokerHost": "192.168.6.50",
+    "BrokerPort": 1883,
+    "Username": "",
+    "Password": "",
+    "ClientIdPrefix": "LoadTest",
+    "BaseTopic": "scanners/data",
+    "PublisherCount": 100,
+    "MessagesPerSecond": 50,
+    "BasePath": "D:\\CSharp\\MQTTLoadTest\\",
+    "DeviceListFile": "devices.txt",
+    "ConnectionTimeoutSeconds": 30,
+    "KeepAliveSeconds": 60,
+    "CleanSession": true,
+    "QoSDistribution": {
+      "QoS0Percentage": 40,
+      "QoS1Percentage": 30,
+      "QoS2Percentage": 30
+    },
+    "EnableTLS": false,
+    "CertificateFile": "",
+    "MaxConcurrentPublishers": 500,
+    "MessageQueueSize": 10000,
+    "PublishTimeoutMs": 5000,
+    "ReconnectDelayMs": 5000,
+    "MaxReconnectAttempts": 5
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information",
+      "MQTTLoadTest": "Debug"
+    },
+    "Console": {
+      "IncludeScopes": false,
+      "TimestampFormat": "HH:mm:ss "
+    },
+    "File": {
+      "Path": "logs/mqtt-loadtest-.log",
+      "Append": true,
+      "MinLevel": "Information",
+      "FileSizeLimitBytes": 52428800,
+      "MaxRollingFiles": 10
+    }
+  }
+}

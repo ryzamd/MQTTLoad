@@ -13,7 +13,7 @@ class Program
 {
     static async Task<int> Main(string[] args)
     {
-        // ✅ Configure Serilog
+        // Configure Serilog
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Console()
             .WriteTo.File("logs/publisher-manager-.log", rollingInterval: RollingInterval.Day)
@@ -61,7 +61,7 @@ class Program
             .UseSerilog() //Use Serilog instead of default logging
             .ConfigureAppConfiguration((context, config) =>
             {
-                config.AddJsonFile("config/mqtt-config.json", optional: false, reloadOnChange: true);
+                config.AddJsonFile("D:/CSharp/MQTTLoadTest/mqtt-config.json", optional: false, reloadOnChange: true);
                 config.AddCommandLine(args);
             })
             .ConfigureServices((context, services) =>

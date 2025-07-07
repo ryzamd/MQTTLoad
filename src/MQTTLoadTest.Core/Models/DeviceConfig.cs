@@ -7,6 +7,7 @@ public class DeviceConfig
     public string Topic { get; set; } = string.Empty;
     public bool IsEnabled { get; set; } = true;
     public int MessagesPerSecond { get; set; } = 1;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public TimeSpan PublishInterval { get; set; } = TimeSpan.FromSeconds(1);
 
     // QoS distribution settings
