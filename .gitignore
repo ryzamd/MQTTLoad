@@ -1,0 +1,82 @@
+## Build results
+bin/
+obj/
+out/
+
+## Rider & VS Code
+.idea/
+.vscode/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Visual Studio
+.vs/
+*.ncb
+*.opendb
+*.VC.db
+
+## Logs
+logs/
+*.log
+
+## Configuration
+appsettings.*.json
+config/*.local.json
+*.Secret.config
+
+## PowerShell script output
+*.ps1~  # backup
+*.ps1.log
+*.ps1.xml
+
+## Backup & temp files
+*~
+*.tmp
+*.bak
+*.swp
+*.swn
+
+## dotnet CLI
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## NuGet
+*.nupkg
+packages/
+.nuget/
+
+## Test results
+TestResult/
+TestResults/
+*.coverage
+*.coveragexml
+*.trx
+
+## ReportGenerator
+coverage-report/
+
+## Publish
+publish/
+*.Publish.xml
+
+## Global JetBrains Rider files
+.idea/
+
+## Local environment config
+.env
+.env.*
+
+## MQTTLoadTest-specific
+config/devices.txt
+config/publisher-states.json
+config/subscription-states.json
+
+## System files
+Thumbs.db
+.DS_Store
+desktop.ini
