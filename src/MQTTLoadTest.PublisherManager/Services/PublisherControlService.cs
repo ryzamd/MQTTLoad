@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
+using System.Collections.Concurrent;
 
 namespace MQTTLoadTest.PublisherManager.Services;
 
@@ -34,7 +35,46 @@ public class PublisherControlService
         try
         {
             _logger.LogInformation("Starting all publishers...");
+
+            // Step 1: Load devices from file
             var devices = await _deviceManager.LoadDevicesAsync();
+            _logger.LogInformation($"Loaded {devices.Count} devices from file");
+
+            // Step 2: Check existing publishers
+            var existingStates = await _publisherManager.GetPublisherStatesAsync();
+            var existingDeviceIds = existingStates.Select(s => s.DeviceId).ToHashSet();
+
+            // Step 3: Auto-add missing publishers
+            var missingDevices = devices.Where(d => !existingDeviceIds.Contains(d.DeviceId)).ToList();
+            if (missingDevices.Any())
+            {
+                _logger.LogInformation($"Auto-initializing {missingDevices.Count} missing publishers...");
+
+                foreach (var device in missingDevices)
+                {
+                    try
+                    {
+                        var success = await _publisherManager.AddPublisherAsync(device);
+                        if (success)
+                        {
+                            _logger.LogDebug($"Added publisher for device: {device.DeviceId}");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"Failed to add publisher for device: {device.DeviceId}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error adding publisher for device: {device.DeviceId}");
+                    }
+                }
+
+                await _publisherManager.SavePublisherStatesAsync();
+                _logger.LogInformation($"Successfully initialized {missingDevices.Count} publishers");
+            }
+
+            // Step 4: Start all publishers
             var tasks = devices.Select(device => _publisherManager.StartPublisherAsync(device.DeviceId));
             var results = await Task.WhenAll(tasks);
 

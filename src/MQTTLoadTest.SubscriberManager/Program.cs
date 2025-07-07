@@ -59,7 +59,7 @@ class Program
             .UseSerilog() // Tích hợp Serilog vào host
             .ConfigureAppConfiguration((context, config) =>
             {
-                config.AddJsonFile("config/mqtt-config.json", optional: false, reloadOnChange: true);
+                config.AddJsonFile("../../../config/mqtt-config.json", optional: false, reloadOnChange: true);
                 config.AddCommandLine(args);
             })
             .ConfigureServices((context, services) =>

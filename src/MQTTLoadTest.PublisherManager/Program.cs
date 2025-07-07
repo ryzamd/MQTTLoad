@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using System.CommandLine;
 using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace MQTTLoadTest.PublisherManager;
 
@@ -61,16 +62,17 @@ class Program
             .UseSerilog() //Use Serilog instead of default logging
             .ConfigureAppConfiguration((context, config) =>
             {
-                config.AddJsonFile("D:/CSharp/MQTTLoadTest/mqtt-config.json", optional: false, reloadOnChange: true);
+                config.AddJsonFile("config/mqtt-config.json", optional: false, reloadOnChange: true);
                 config.AddCommandLine(args);
             })
             .ConfigureServices((context, services) =>
             {
-                services.Configure<MqttConfiguration>(context.Configuration);
+                services.Configure<MqttConfiguration>(context.Configuration.GetSection("MqttConfiguration"));
                 services.AddSingleton<IDeviceManager, DeviceManager>();
                 services.AddSingleton<IPerformanceMonitor, PerformanceMonitor>();
                 services.AddSingleton<IPublisherManager, PublisherManagerService>();
                 services.AddSingleton<PublisherControlService>();
+                services.AddSingleton<ILoggerFactory, LoggerFactory>();
             });
 
     private static Command CreateStartCommand(IHost host)

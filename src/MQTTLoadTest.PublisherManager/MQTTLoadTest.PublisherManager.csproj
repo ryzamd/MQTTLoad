@@ -11,6 +11,10 @@
 
  <ItemGroup>
 	<ProjectReference Include="..\MQTTLoadTest.Core\MQTTLoadTest.Core.csproj" />
+	 <None Include="D:/CSharp/MQTTLoadTest/mqtt-config.json">
+		 <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		 <Link>config/mqtt-config.json</Link>
+	 </None>
  </ItemGroup>
 
 	<PropertyGroup>
