@@ -33,11 +33,17 @@ public class HighPerformancePublisher : IHighPerformancePublisher
         {
             lock (_stateLock)
             {
+                // CRITICAL: Always sync with actual connection status
+                _state.IsConnected = _mqttClient?.IsConnected ?? false;
+                _state.IsRunning = IsRunning;
+
                 return new PublisherState
                 {
                     PublisherId = _state.PublisherId,
                     DeviceId = _state.DeviceId,
+                    IsConnected = _state.IsConnected,  // Real connection status
                     IsRunning = _state.IsRunning,
+                    IsPublishing = _state.IsPublishing,
                     IsEnabled = _state.IsEnabled,
                     TotalMessagesSent = _state.TotalMessagesSent,
                     TotalErrors = _state.TotalErrors,
@@ -45,6 +51,7 @@ public class HighPerformancePublisher : IHighPerformancePublisher
                     CreatedAt = _state.CreatedAt,
                     AverageLatency = _state.AverageLatency,
                     LastError = _state.LastError,
+                    Status = _state.Status,
                     QoSMessageCounts = new Dictionary<string, long>(_state.QoSMessageCounts)
                 };
             }
@@ -106,6 +113,7 @@ public class HighPerformancePublisher : IHighPerformancePublisher
             {
                 UpdateState(s => s.LastError = string.Empty);
                 _logger.LogInformation("Publisher {DeviceId} connected successfully", _device.DeviceId);
+                _logger.LogInformation("Publisher {DeviceId} connection result: {IsConnected}", _device.DeviceId, IsConnected);
                 return true;
             }
             else
@@ -159,11 +167,16 @@ public class HighPerformancePublisher : IHighPerformancePublisher
             if (IsRunning)
                 return true;
 
-            var interval = 1000.0 / _device.MessagesPerSecond; // Precise timing
+            var interval = 1000.0 / _device.MessagesPerSecond;
             _publishTimer = new Timer(PublishMessage, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(interval));
 
             IsRunning = true;
-            UpdateState(s => s.IsRunning = true);
+
+            // CRITICAL FIX: Set both IsRunning AND IsPublishing
+            UpdateState(s => {
+                s.IsRunning = true;
+                s.IsPublishing = true;  // This was missing!
+            });
 
             _logger.LogInformation("Publisher {DeviceId} started publishing at {Rate} msg/s",
                 _device.DeviceId, _device.MessagesPerSecond);
@@ -191,7 +204,12 @@ public class HighPerformancePublisher : IHighPerformancePublisher
             _publishTimer = null;
 
             IsRunning = false;
-            UpdateState(s => s.IsRunning = false);
+
+            // CRITICAL FIX: Set both states
+            UpdateState(s => {
+                s.IsRunning = false;
+                s.IsPublishing = false;  // This was missing!
+            });
 
             _logger.LogInformation("Publisher {DeviceId} stopped publishing", _device.DeviceId);
             return true;
@@ -205,8 +223,15 @@ public class HighPerformancePublisher : IHighPerformancePublisher
 
     public async Task<bool> PublishMessageAsync(MessageData message)
     {
+        _logger.LogDebug("Publisher {DeviceId} attempting to publish message {SeqNum}",
+        _device.DeviceId, message.SequenceNumber);
+
         if (!IsConnected || _mqttClient == null)
+        {
+            _logger.LogWarning("Publisher {DeviceId} cannot publish - IsConnected:{IsConnected}",
+                _device.DeviceId, IsConnected);
             return false;
+        }
 
         try
         {
@@ -261,32 +286,82 @@ public class HighPerformancePublisher : IHighPerformancePublisher
 
     private async void PublishMessage(object? state)
     {
-        if (!IsRunning || !_device.IsEnabled)
-            return;
+        try
+        {
+            // Debug logging
+            if (!IsRunning)
+            {
+                _logger.LogDebug("Publisher {DeviceId} not running, skipping publish", _device.DeviceId);
+                return;
+            }
 
-        var message = GenerateMessageData();
-        await PublishMessageAsync(message);
+            if (!_device.IsEnabled)
+            {
+                _logger.LogDebug("Publisher {DeviceId} not enabled, skipping publish", _device.DeviceId);
+                return;
+            }
+
+            if (!IsConnected)
+            {
+                _logger.LogDebug("Publisher {DeviceId} not connected, skipping publish", _device.DeviceId);
+                return;
+            }
+
+            // Generate and publish message
+            var message = GenerateMessageData();
+            var success = await PublishMessageAsync(message);
+
+            if (success)
+            {
+                _logger.LogTrace("Publisher {DeviceId} published message {SequenceNumber}",
+                    _device.DeviceId, message.SequenceNumber);
+            }
+            else
+            {
+                _logger.LogWarning("Publisher {DeviceId} failed to publish message {SequenceNumber}",
+                    _device.DeviceId, message.SequenceNumber);
+            }
+        }
+        catch (Exception ex)
+        {
+            // CRITICAL: Catch exceptions in async void
+            _logger.LogError(ex, "Publisher {DeviceId} publish timer error", _device.DeviceId);
+
+            UpdateState(s =>
+            {
+                s.TotalErrors++;
+                s.LastError = $"Timer error: {ex.Message}";
+            });
+        }
     }
 
     private MessageData GenerateMessageData()
     {
-        var sequenceNumber = Interlocked.Increment(ref _sequenceNumber);
-
-        return new MessageData
+        try
         {
-            DeviceId = _device.DeviceId,
-            DeviceName = _device.DeviceName,
-            Timestamp = DateTime.UtcNow,
-            SequenceNumber = (int)sequenceNumber,
-            ScanData = GenerateRandomScanData(),
-            Temperature = Math.Round(_random.NextDouble() * 50 + 20, 2), // 20-70°C
-            Status = _random.Next(100) < 95 ? "OK" : "WARNING", // 95% OK, 5% WARNING
-            AdditionalData = new Dictionary<string, object>
+            var sequenceNumber = Interlocked.Increment(ref _sequenceNumber);
+
+            _logger.LogDebug("Publisher {DeviceId} generating message {SeqNum}", _device.DeviceId, sequenceNumber);
+
+            var message = new MessageData
             {
-                ["battery_level"] = _random.Next(10, 101),
-                ["signal_strength"] = _random.Next(-100, -30)
-            }
-        };
+                DeviceId = _device.DeviceId,
+                DeviceName = _device.DeviceName,
+                Timestamp = DateTime.UtcNow,
+                SequenceNumber = (int)sequenceNumber,
+                ScanData = GenerateRandomScanData(),
+                Temperature = Math.Round(_random.NextDouble() * 50 + 20, 2),
+                Status = _random.Next(100) < 95 ? "Active" : "Warning"
+            };
+
+            _logger.LogDebug("Publisher {DeviceId} generated message successfully", _device.DeviceId);
+            return message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Publisher {DeviceId} GenerateMessageData failed", _device.DeviceId);
+            throw;
+        }
     }
 
     private string GenerateRandomScanData()
@@ -324,49 +399,79 @@ public class HighPerformancePublisher : IHighPerformancePublisher
         lock (_stateLock)
         {
             updateAction(_state);
-            OnStateChanged?.Invoke(this, State);
+            _state.IsConnected = IsConnected; // Sync with actual connection status
         }
+
+        // Fire event outside of lock to prevent deadlock
+        OnStateChanged?.Invoke(this, State);
     }
 
-    private Task OnConnectedAsync(MqttClientConnectedEventArgs e)
+    private async Task OnConnectedAsync(MqttClientConnectedEventArgs e)
     {
-        _logger.LogDebug("Publisher {DeviceId} connected", _device.DeviceId);
-        return Task.CompletedTask;
+        await Task.Run(() =>
+        {
+            lock (_stateLock)
+            {
+                _state.IsConnected = true;
+                _state.Status = PublisherStatus.Connected;
+            }
+            _logger.LogInformation("Publisher {DeviceId} connected", _device.DeviceId);
+            OnStateChanged?.Invoke(this, State);
+        });
     }
 
     private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs e)
     {
+        UpdateState(s => {
+            s.IsConnected = false;
+            s.IsPublishing = false;
+            s.Status = PublisherStatus.Disconnected;
+            s.LastError = e.Reason.ToString() ?? "Unknown disconnect";
+        });
+
         _logger.LogWarning("Publisher {DeviceId} disconnected: {Reason}", _device.DeviceId, e.Reason);
 
-        if (_disposed || !_device.IsEnabled)
-            return;
+        if (_disposed || !_device.IsEnabled) return;
 
-        // Auto-reconnect with exponential backoff
-        await Task.Run(async () =>
+        // Prevent rapid reconnection - add jitter
+        var delay = 500 + new Random().Next(0, 1000);
+        await Task.Delay(delay);
+
+        _ = Task.Run(async () => await ReconnectWithBackoffAsync());
+    }
+
+    private async Task ReconnectWithBackoffAsync()
+    {
+        int attempt = 0;
+        while (!IsConnected && attempt < _config.MaxRetryAttempts && !_disposed)
         {
-            int attempt = 0;
-            while (!IsConnected && attempt < _config.MaxRetryAttempts && !_disposed)
-            {
-                var delay = Math.Min(60000, (int)Math.Pow(2, attempt) * 1000);
-                await Task.Delay(delay);
+            var baseDelay = (int)Math.Pow(2, attempt) * 1000;
+            var jitter = new Random().Next(0, 1000);
+            var delay = Math.Min(30000, baseDelay + jitter);
 
-                try
+            await Task.Delay(delay);
+
+            try
+            {
+                if (_disposed) break;
+
+                var connected = await ConnectAsync();
+                if (connected && IsRunning)
                 {
-                    await ConnectAsync();
-                    if (IsConnected && IsRunning)
-                    {
-                        // Timer will resume automatically
-                    }
+                    await StartPublishingAsync();
                     break;
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Publisher {DeviceId} reconnection attempt {Attempt} failed",
-                        _device.DeviceId, attempt + 1);
-                    attempt++;
-                }
             }
-        });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Publisher {DeviceId} reconnection attempt {Attempt} failed",
+                    _device.DeviceId, attempt + 1);
+
+                UpdateState(s => s.LastError = $"Reconnect failed: {ex.Message}");
+            }
+
+            attempt++;
+        }
     }
 
     public void Dispose()

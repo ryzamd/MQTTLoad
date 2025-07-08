@@ -8,6 +8,7 @@
     "BaseTopic": "scanners/data",
     "PublisherCount": 100,
     "MessagesPerSecond": 50,
+    "DurationMinutes": 5,
     "BasePath": "D:\\CSharp\\MQTTLoadTest\\",
     "DeviceListFile": "devices.txt",
     "ConnectionTimeoutSeconds": 30,

@@ -13,9 +13,12 @@ public class PublisherManagerService : IPublisherManager, IDisposable
     private readonly IDeviceManager _deviceManager;
     private readonly IPerformanceMonitor _performanceMonitor;
     private readonly ILogger<PublisherManagerService> _logger;
-    private readonly ILoggerFactory _loggerFactory; // ADD THIS
+    private readonly ILoggerFactory _loggerFactory;
     private readonly ConcurrentDictionary<string, IHighPerformancePublisher> _publishers = new();
     private readonly ConcurrentDictionary<string, PublisherState> _publisherStates = new();
+    private readonly SemaphoreSlim _connectionSemaphore = new(10, 10);
+    private readonly Dictionary<string, DateTime> _lastConnectionAttempts = new();
+    private readonly object _connectionTimingLock = new();
     private readonly Timer _metricsTimer;
     private bool _disposed = false;
 
@@ -74,8 +77,6 @@ public class PublisherManagerService : IPublisherManager, IDisposable
         }
     }
 
-    // ... rest of the methods remain the same ...
-
     public async Task<bool> StartPublisherAsync(string deviceId)
     {
         if (!_publishers.TryGetValue(deviceId, out var publisher))
@@ -86,13 +87,22 @@ public class PublisherManagerService : IPublisherManager, IDisposable
 
         try
         {
-            var success = await publisher.StartPublishingAsync();
-            if (success)
+            // FIXED: Connect first, then start publishing
+            var connected = await publisher.ConnectAsync();
+            if (!connected)
+            {
+                _logger.LogError("Publisher {DeviceId} failed to connect", deviceId);
+                return false;
+            }
+
+            var started = await publisher.StartPublishingAsync();
+            if (started)
             {
                 _performanceMonitor.IncrementCounter("publishers_started");
-                _logger.LogInformation("Publisher {DeviceId} started", deviceId);
+                _logger.LogInformation("Publisher {DeviceId} connected and started publishing", deviceId);
             }
-            return success;
+
+            return started;
         }
         catch (Exception ex)
         {
@@ -200,17 +210,23 @@ public class PublisherManagerService : IPublisherManager, IDisposable
 
     public async Task<List<PublisherState>> GetPublisherStatesAsync()
     {
-        return await Task.Run(() =>
+        var states = new List<PublisherState>();
+
+        foreach (var publisher in _publishers.Values)
         {
-            var states = new List<PublisherState>();
-            foreach (var kvp in _publishers)
-            {
-                var publisher = kvp.Value;
-                var state = publisher.State;
-                states.Add(state);
-            }
-            return states;
-        }).ConfigureAwait(false);
+            var state = publisher.State;
+
+            // FIXED: Sync with actual connection status
+            state.IsConnected = publisher.IsConnected;
+            state.IsRunning = publisher.IsRunning;
+
+            // Update cached state
+            _publisherStates.AddOrUpdate(state.DeviceId, state, (key, oldValue) => state);
+
+            states.Add(state);
+        }
+
+        return states;
     }
 
     public async Task<PublisherState?> GetPublisherStateAsync(string deviceId)

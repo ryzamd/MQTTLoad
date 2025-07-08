@@ -32,4 +32,5 @@ public class PublisherState
 
     // Status
     public PublisherStatus Status { get; set; } = PublisherStatus.Stopped;
+    public DateTime LastUpdated { get; internal set; }
 }
